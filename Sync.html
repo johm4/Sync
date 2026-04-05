@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Sync-Link | Secure Vault</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { --accent: #ec4899; --bg: #050505; --card: rgba(20, 20, 20, 0.8); }
+        body { background-color: var(--bg); color: #fff; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, sans-serif; height: 100vh; margin: 0; }
+        
+        /* Layout & Scrolling */
+        .view-section { height: 100vh; width: 100%; overflow-y: auto; padding-bottom: 200px; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .hidden-view { display: none; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+
+        /* Form Styling */
+        input, textarea { background: rgba(255,255,255,0.05) !important; border-radius: 1.25rem !important; padding: 1.2rem !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; outline: none; width: 100%; transition: 0.3s; }
+        input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 15px rgba(236, 72, 153, 0.1); }
+
+        /* Profile Glassmorphism */
+        .profile-card { background: var(--card); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255,255,255,0.05); border-radius: 3rem; padding: 2.5rem 1.5rem; }
+        .avatar-wrapper { position: relative; width: 130px; height: 130px; margin: 0 auto; }
+        #profile-pic { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent); background: #111; }
+        .cam-badge { position: absolute; bottom: 5px; right: 5px; background: var(--accent); width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 4px solid var(--bg); cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+
+        /* NAVIGATION - POURED DOWN */
+        .nav-dock { 
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; 
+            padding-bottom: env(safe-area-inset-bottom, 25px); 
+            background: linear-gradient(to top, #000 70%, transparent); 
+        }
+        .nav-bar { 
+            display: flex; justify-content: space-between; align-items: center; 
+            max-width: 450px; margin: 0 auto; height: 75px; 
+            background: rgba(22, 22, 22, 0.98); backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255,255,255,0.1); border-radius: 35px 35px 0 0; 
+        }
+        .nav-item { flex: 1; display: flex; align-items: center; justify-content: center; }
+        .nudge-btn { 
+            width: 72px; height: 72px; background: linear-gradient(to tr, #ec4899, #f43f5e); 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+            border: 6px solid var(--bg); transform: translateY(-25px); 
+            box-shadow: 0 10px 25px rgba(236, 72, 153, 0.4);
+        }
+        .tap-scale:active { transform: scale(0.92); opacity: 0.8; }
+
+        /* Toast Notification */
+        #toast { position: fixed; top: 40px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; padding: 12px 30px; border-radius: 50px; font-size: 11px; font-weight: 800; text-transform: uppercase; z-index: 5000; display: none; box-shadow: 0 10px 30px rgba(236, 72, 153, 0.3); }
+    </style>
+</head>
+<body>
+
+    <div id="toast">Update Saved</div>
+
+    <div id="view-auth" class="view-section flex flex-col items-center justify-center px-8">
+        <div class="w-full max-w-sm space-y-12 text-center">
+            <div>
+                <h1 class="text-7xl font-black text-pink-500 tracking-tighter">SYNC</h1>
+                <p id="auth-subtitle" class="text-zinc-600 text-[10px] font-black uppercase tracking-[0.5em] mt-3">Identity Required</p>
+            </div>
+            
+            <div class="space-y-4">
+                <input type="text" id="auth-user" placeholder="Username">
+                <input type="password" id="auth-pass" placeholder="Password">
+                <div id="reg-fields" class="hidden"><input type="email" id="auth-email" placeholder="Email" class="mt-4"></div>
+                <button onclick="processSecurity()" id="auth-main-btn" class="w-full bg-white text-black py-5 rounded-[2rem] font-black uppercase text-xs mt-4 tap-scale">Enter Vault</button>
+            </div>
+
+            <p class="text-zinc-500 text-[10px] uppercase font-black tracking-widest">
+                <span id="toggle-info">New to the database?</span> 
+                <button onclick="toggleAuth()" id="toggle-action" class="text-pink-500 ml-1 font-bold">Register</button>
+            </p>
+        </div>
+    </div>
+
+    <div id="app-content" class="hidden">
+        <main>
+            <div id="view-home" class="view-section px-8 pt-32 text-center">
+                <div class="py-20 opacity-20">
+                    <i class="fa-solid fa-satellite-dish text-6xl mb-4"></i>
+                    <p class="text-[10px] font-black uppercase tracking-[0.4em]">Searching for partner...</p>
+                </div>
+            </div>
+
+            <div id="view-search" class="view-section hidden-view px-8 pt-32 space-y-8">
+                <h2 class="text-5xl font-black tracking-tighter">Connect</h2>
+                <input type="text" placeholder="Babe's Username..." onkeyup="if(this.value.toLowerCase()==='babe') document.getElementById('pair-box').style.display='block'">
+                <div id="pair-box" class="hidden bg-zinc-900 p-10 rounded-[3rem] border border-pink-500/10 text-center">
+                    <button onclick="alert('Syncing Rooms...');" class="w-full bg-pink-600 py-5 rounded-3xl font-black uppercase text-xs tap-scale">Sync Souls</button>
+                </div>
+            </div>
+
+            <div id="view-profile" class="view-section hidden-view px-6 pt-24">
+                <div class="max-w-md mx-auto space-y-8">
+                    <div class="profile-card text-center space-y-5">
+                        <div class="avatar-wrapper">
+                            <img id="profile-pic" src="https://via.placeholder.com/150/111/ec4899?text=?" alt="User">
+                            <label for="file-in" class="cam-badge tap-scale"><i class="fa-solid fa-camera text-[11px] text-white"></i></label>
+                            <input type="file" id="file-in" hidden accept="image/*" onchange="handleImage(this)">
+                        </div>
+                        <div>
+                            <h3 id="profile-name" class="text-4xl font-black tracking-tighter">User</h3>
+                            <p id="profile-bio-text" class="text-zinc-500 text-sm mt-1 px-4 italic">No bio set.</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <p class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-4">Vault Settings</p>
+                        <input type="text" id="edit-display-name" placeholder="Display Name">
+                        <textarea id="edit-bio" placeholder="Write something personal..." rows="3"></textarea>
+                        <button onclick="saveIdentity()" class="w-full bg-pink-600 py-5 rounded-[2rem] font-black uppercase text-xs tap-scale">Update Identity</button>
+                        <button onclick="location.reload()" class="w-full text-zinc-700 text-[9px] font-black uppercase tracking-widest mt-4">Wipe Session & Logout</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div class="nav-dock">
+            <div class="nav-bar">
+                <div class="nav-item"><button onclick="switchTab('home')" id="nh" class="text-zinc-600 tap-scale"><i class="fa-solid fa-clapperboard text-xl"></i></button></div>
+                <div class="nav-item"><button onclick="switchTab('search')" id="ns" class="text-zinc-600 tap-scale"><i class="fa-solid fa-user-group text-xl"></i></button></div>
+                <div class="nav-item"><button class="nudge-btn tap-scale"><i class="fa-solid fa-heart text-white text-2xl"></i></button></div>
+                <div class="nav-item"><button onclick="switchTab('profile')" id="np" class="text-pink-500 tap-scale"><i class="fa-solid fa-fingerprint text-2xl"></i></button></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isLogin = true;
+        let activeUser = "";
+
+        // DATABASE HELPERS
+        const getDB = () => JSON.parse(localStorage.getItem('vault_master_db') || '{}');
+        const setDB = (db) => localStorage.setItem('vault_master_db', JSON.stringify(db));
+
+        function toggleAuth() {
+            isLogin = !isLogin;
+            document.getElementById('auth-subtitle').innerText = isLogin ? "Identity Required" : "Create Record";
+            document.getElementById('auth-main-btn').innerText = isLogin ? "Enter Vault" : "Register Now";
+            document.getElementById('reg-fields').classList.toggle('hidden', isLogin);
+            document.getElementById('toggle-info').innerText = isLogin ? "New to the database?" : "Already registered?";
+            document.getElementById('toggle-action').innerText = isLogin ? "Register" : "Login";
+        }
+
+        function processSecurity() {
+            const u = document.getElementById('auth-user').value.trim().toLowerCase();
+            const p = document.getElementById('auth-pass').value;
+            let db = getDB();
+
+            if(!u || !p) return;
+
+            if(isLogin) {
+                // Master Key Bypass
+                if((u === 'boss' || u === 'queen') && p === '44444') return launchApp(u);
+
+                // Tight Database Check
+                if(db[u] && db[u].password === p) {
+                    launchApp(u);
+                } else {
+                    alert("ACCESS DENIED: Database mismatch.");
+                }
+            } else {
+                // Register
+                if(db[u]) return alert("Username Occupied");
+                db[u] = { password: p, bio: "", img: "", displayName: u };
+                setDB(db);
+                alert("Identity Stored. Please Login.");
+                toggleAuth();
+            }
+        }
+
+        function launchApp(user) {
+            activeUser = user;
+            const db = getDB();
+            const data = db[user] || { displayName: user, bio: "", img: "" };
+
+            document.getElementById('profile-name').innerText = data.displayName || user;
+            document.getElementById('edit-display-name').value = data.displayName || user;
+            document.getElementById('profile-bio-text').innerText = data.bio || "No bio set.";
+            document.getElementById('edit-bio').value = data.bio || "";
+            if(data.img) document.getElementById('profile-pic').src = data.img;
+
+            document.getElementById('view-auth').style.display = 'none';
+            document.getElementById('app-content').classList.remove('hidden');
+        }
+
+        function handleImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => { document.getElementById('profile-pic').src = e.target.result; };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function saveIdentity() {
+            let db = getDB();
+            const newName = document.getElementById('edit-display-name').value;
+            const newBio = document.getElementById('edit-bio').value;
+            const newImg = document.getElementById('profile-pic').src;
+
+            if(db[activeUser]) {
+                db[activeUser].displayName = newName;
+                db[activeUser].bio = newBio;
+                db[activeUser].img = newImg;
+                setDB(db);
+
+                document.getElementById('profile-name').innerText = newName;
+                document.getElementById('profile-bio-text').innerText = newBio || "No bio set.";
+                
+                const t = document.getElementById('toast');
+                t.style.display = 'block';
+                setTimeout(() => t.style.display = 'none', 2000);
+            }
+        }
+
+        function switchTab(t) {
+            ['home', 'search', 'profile'].forEach(v => document.getElementById('view-'+v).classList.add('hidden-view'));
+            document.getElementById('view-'+t).classList.remove('hidden-view');
+            document.getElementById('nh').classList.toggle('text-pink-500', t === 'home');
+            document.getElementById('ns').classList.toggle('text-pink-500', t === 'search');
+            document.getElementById('np').classList.toggle('text-pink-500', t === 'profile');
+        }
+    </script>
+</body>
+</html>
